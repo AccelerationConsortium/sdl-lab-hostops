@@ -7,4 +7,4 @@ device ``/control/*`` endpoint — hardware control belongs to the lab-skills
 SDK (see ac-organic-lab/docs/AGENT_RULES.md §1.1).
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"

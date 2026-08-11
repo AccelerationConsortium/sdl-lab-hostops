@@ -33,8 +33,8 @@ def make_ops(**overrides):
     )
     backend = FakeBackend()
 
-    async def fake_getter(port):
-        return {"url": f"http://127.0.0.1:{port}/status", "status_code": 200, "latency_ms": 1.0, "body": {}}
+    async def fake_getter(port, path="/status"):
+        return {"url": f"http://127.0.0.1:{port}{path}", "status_code": 200, "latency_ms": 1.0, "body": {}}
 
     return HostOps(cfg, backend, status_getter=fake_getter), backend
 
@@ -70,6 +70,12 @@ async def test_probe_port_gate():
     assert (await ops.probe_local_status(8001))["ok"] is True
     with pytest.raises(NotWhitelisted):
         await ops.probe_local_status(8010)
+
+
+async def test_probe_path_override():
+    ops, _ = make_ops(probe_paths={8001: "/zones/env_hte/status"})
+    result = await ops.probe_local_status(8001)
+    assert result["url"] == "http://127.0.0.1:8001/zones/env_hte/status"
 
 
 async def test_status_envelope_shape():

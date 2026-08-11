@@ -35,10 +35,10 @@ def _utcnow() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-async def _default_status_getter(port: int) -> dict[str, Any]:
+async def _default_status_getter(port: int, path: str = "/status") -> dict[str, Any]:
     import httpx
 
-    url = f"http://127.0.0.1:{port}/status"
+    url = f"http://127.0.0.1:{port}{path}"
     start = time.monotonic()
     async with httpx.AsyncClient(timeout=PROBE_TIMEOUT_S) as client:
         resp = await client.get(url)
@@ -154,10 +154,11 @@ class HostOps:
 
     async def probe_local_status(self, port: int) -> dict[str, Any]:
         checked = self._check_port(int(port))
+        path = (self.cfg.probe_paths or {}).get(checked, "/status")
         try:
-            return {"ok": True, **await self._status_getter(checked)}
+            return {"ok": True, **await self._status_getter(checked, path)}
         except Exception as exc:  # transport failure is a *finding*, not a crash
-            return {"ok": False, "url": f"http://127.0.0.1:{checked}/status", "error": f"{type(exc).__name__}: {exc}"}
+            return {"ok": False, "url": f"http://127.0.0.1:{checked}{path}", "error": f"{type(exc).__name__}: {exc}"}
 
     # ---------------------------------------------------------------- status
 

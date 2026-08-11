@@ -31,3 +31,5 @@ restartable = ["plateloc", "torry-pines-shaker"]
 [probe]
 # Local ports probe_local_status may GET /status on (loopback only).
 ports = [8000, 8010, 8030, 8040, 8050]
+# Gateway-style services 404 on bare /status; override the path per port:
+# paths = { 8030 = "/zones/env_hte/status" }

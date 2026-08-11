@@ -28,6 +28,9 @@ class HostopsConfig:
     services: tuple[str, ...] = ()
     restartable: tuple[str, ...] = ()
     probe_ports: tuple[int, ...] = ()
+    # Gateway-style services 404 on bare /status (e.g. sense-every-zone
+    # serves /zones/<id>/status); [probe] paths overrides per port.
+    probe_paths: dict[int, str] | None = None
 
     @property
     def loopback_only(self) -> bool:
@@ -47,6 +50,9 @@ class HostopsConfig:
         bad_ports = sorted(p for p in self.probe_ports if not (0 < p < 65536))
         if bad_ports:
             errors.append(f"probe.ports out of range: {bad_ports}")
+        for port, path in (self.probe_paths or {}).items():
+            if not path.startswith("/"):
+                errors.append(f"probe.paths[{port}] must start with '/': {path!r}")
         if errors:
             raise ValueError("invalid hostops config: " + "; ".join(errors))
 
@@ -67,6 +73,7 @@ def load_config(path: str | Path | None = None) -> HostopsConfig:
         services=tuple(str(x) for x in s.get("whitelist", [])),
         restartable=tuple(str(x) for x in s.get("restartable", [])),
         probe_ports=tuple(int(x) for x in p.get("ports", [])),
+        probe_paths={int(k): str(v) for k, v in p.get("paths", {}).items()} or None,
     )
     cfg.validate()
     return cfg

@@ -1,6 +1,6 @@
 [project]
 name = "sdl-lab-hostops"
-version = "0.1.0"
+version = "0.1.1"
 description = "Whitelisted host-operations MCP server for SDL2 lab machines: service status/logs/restart, serial-port enumeration, local STATUS_SPEC probes. Deliberately NO hardware control and NO shell."
 readme = "README.md"
 requires-python = ">=3.11"
