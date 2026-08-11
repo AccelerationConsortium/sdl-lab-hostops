@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import platform
+import shutil
 from collections import deque
 from pathlib import Path
 
@@ -107,8 +108,15 @@ class SystemdBackend:
 class NssmBackend:
     name = "nssm"
 
+    # DEVICE_PC_SETUP §2.1 keeps service binaries at a stable path precisely
+    # because Windows services do NOT inherit the interactive user's PATH —
+    # under LocalSystem a bare "nssm" is not found even though every device
+    # service on the PC was installed with it.
+    _NSSM_FALLBACK = "C:/SDL_Tools/nssm.exe"
+
     def __init__(self, log_dir: str | None):
         self.log_dir = Path(log_dir) if log_dir else Path("C:/SDL_Logs")
+        self.nssm = shutil.which("nssm") or self._NSSM_FALLBACK
 
     async def status(self, service: str) -> dict:
         rc, sc_out = await _run("sc", "query", service)
@@ -133,7 +141,7 @@ class NssmBackend:
         return "\n".join(parts)
 
     async def restart(self, service: str) -> dict:
-        rc, out = await _run("nssm", "restart", service, timeout=90.0)
+        rc, out = await _run(self.nssm, "restart", service, timeout=90.0)
         # NSSM quirk (DEVICE_PC_SETUP §7): services come back SERVICE_PAUSED;
         # `sc continue` is the resume verb, run unconditionally and best-effort.
         try:
