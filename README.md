@@ -1,4 +1,4 @@
-# lab-hostops
+# sdl-lab-hostops
 
 Whitelisted **host-operations MCP server** for SDL2 lab machines. It answers
 "is the service up, what did it log, did the USB adapter come back, is the
@@ -30,7 +30,7 @@ Selected automatically by platform:
 
 - **systemd** (Linux, Raspberry Pi): `systemctl` / `journalctl`. Restarts can
   be prefixed with `sudo -n` (`use_sudo = true`) — grant only the exact
-  units, e.g. `/etc/sudoers.d/lab-hostops`:
+  units, e.g. `/etc/sudoers.d/sdl-lab-hostops`:
 
   ```
   sdl2 ALL=(root) NOPASSWD: /usr/bin/systemctl restart plateloc.service
@@ -74,30 +74,30 @@ Follow `ac-organic-lab/docs/DEVICE_PC_SETUP.md` §3 with:
 
 ```powershell
 cd C:\Users\sdl2\Projects
-git clone <this-repo> lab-hostops
-cd lab-hostops
+git clone <this-repo> sdl-lab-hostops
+cd sdl-lab-hostops
 Copy-Item config.example.toml config.toml   # edit whitelists for this PC
 C:\SDL_Tools\uv.exe sync --extra serial
-nssm install lab-hostops C:\SDL_Tools\uv.exe run --project C:\Users\sdl2\Projects\lab-hostops lab-hostops-serve --transport http
-nssm set lab-hostops AppDirectory C:\Users\sdl2\Projects\lab-hostops
-nssm set lab-hostops AppEnvironmentExtra HOSTOPS_TOKEN=<token> HOSTOPS_INGEST_URL=http://sdl2-server-gaia.tail6a1dd7.ts.net:8001
+nssm install sdl-lab-hostops C:\SDL_Tools\uv.exe run --project C:\Users\sdl2\Projects\sdl-lab-hostops lab-hostops-serve --transport http
+nssm set sdl-lab-hostops AppDirectory C:\Users\sdl2\Projects\sdl-lab-hostops
+nssm set sdl-lab-hostops AppEnvironmentExtra HOSTOPS_TOKEN=<token> HOSTOPS_INGEST_URL=http://sdl2-server-gaia.tail6a1dd7.ts.net:8001
 # ... stdout/stderr logs, auto-start, run-as user: exactly as DEVICE_PC_SETUP §3
-nssm start lab-hostops
-sc continue lab-hostops
+nssm start sdl-lab-hostops
+sc continue sdl-lab-hostops
 ```
 
 Note the service account needs rights to restart the *other* services
-(`sc sdset` per service, or run lab-hostops under an account that has them).
+(`sc sdset` per service, or run sdl-lab-hostops under an account that has them).
 A permission failure is reported truthfully in the tool result.
 
 ## Install — Linux / Raspberry Pi (systemd)
 
 ```bash
-git clone <this-repo> /opt/lab-hostops && cd /opt/lab-hostops
+git clone <this-repo> /opt/sdl-lab-hostops && cd /opt/sdl-lab-hostops
 cp config.example.toml config.toml   # edit
 uv sync                              # base deps only — no extras needed
-sudo cp deploy/lab-hostops.service /etc/systemd/system/
-sudo systemctl enable --now lab-hostops
+sudo cp deploy/sdl-lab-hostops.service /etc/systemd/system/
+sudo systemctl enable --now sdl-lab-hostops
 ```
 
 ### Pi Zero 2W "lite" mode
@@ -115,7 +115,7 @@ to run it lighter:
    # Hermes mcp_servers entry on the central server
    hostops-pi0-environ:
      command: ssh
-     args: [sdl2@sdl2-pi0-environ-01, /opt/lab-hostops/.venv/bin/lab-hostops-serve, --transport, stdio, --config, /opt/lab-hostops/config.toml]
+     args: [sdl2@sdl2-pi0-environ-01, /opt/sdl-lab-hostops/.venv/bin/lab-hostops-serve, --transport, stdio, --config, /opt/sdl-lab-hostops/config.toml]
    ```
 
    Requires key-based SSH from the central server. Prefer this on the Pis;

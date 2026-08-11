@@ -7,11 +7,11 @@ Wants=network-online.target
 
 [Service]
 User=sdl2
-WorkingDirectory=/opt/lab-hostops
-Environment=HOSTOPS_CONFIG=/opt/lab-hostops/config.toml
+WorkingDirectory=/opt/sdl-lab-hostops
+Environment=HOSTOPS_CONFIG=/opt/sdl-lab-hostops/config.toml
 # HOSTOPS_TOKEN and HOSTOPS_INGEST_URL belong in the env file, not the unit:
-EnvironmentFile=-/etc/lab-hostops/.env
-ExecStart=/opt/lab-hostops/.venv/bin/lab-hostops-serve --transport http
+EnvironmentFile=-/etc/sdl-lab-hostops/.env
+ExecStart=/opt/sdl-lab-hostops/.venv/bin/lab-hostops-serve --transport http
 Restart=on-failure
 RestartSec=5
 
