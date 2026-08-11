@@ -1,0 +1,33 @@
+# lab-hostops per-host configuration.
+# Copy to config.toml (or <host>.local.toml — *.local.toml is gitignored) and
+# edit for the machine. Secrets never go here: HOSTOPS_TOKEN and
+# HOSTOPS_INGEST_URL are environment variables.
+
+[hostops]
+# Used as device_id in audit rows and equipment_id in the /status envelope.
+equipment_id = "hostops_example_pc"
+
+# "stdio": spawned per-connection by the MCP client (same machine, or over
+#          SSH for the daemonless Pi "lite" mode). No token needed.
+# "http":  long-lived service (NSSM / systemd). A non-loopback bind refuses
+#          to start unless HOSTOPS_TOKEN is set.
+transport = "http"
+host = "0.0.0.0"
+port = 8060
+
+# NSSM backend only: directory holding <service>.out.log / <service>.err.log.
+# log_dir = "C:/SDL_Logs"
+
+# systemd backend only: prefix restarts with `sudo -n` (requires a sudoers
+# drop-in for exactly those units — see README).
+use_sudo = false
+
+[services]
+# Only these services can be inspected AT ALL (status + log tail).
+whitelist = ["plateloc", "xarm", "cytation", "torry-pines-shaker", "biostack4"]
+# The subset restart_service may touch. Empty list = read-only instance.
+restartable = ["plateloc", "torry-pines-shaker"]
+
+[probe]
+# Local ports probe_local_status may GET /status on (loopback only).
+ports = [8000, 8010, 8030, 8040, 8050]

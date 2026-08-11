@@ -1,0 +1,19 @@
+# systemd unit for a long-lived http-transport lab-hostops instance.
+# For the daemonless Pi "lite" mode (stdio over SSH) no unit is needed.
+[Unit]
+Description=Lab host-ops MCP server (whitelisted service status/logs/restart)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=sdl2
+WorkingDirectory=/opt/lab-hostops
+Environment=HOSTOPS_CONFIG=/opt/lab-hostops/config.toml
+# HOSTOPS_TOKEN and HOSTOPS_INGEST_URL belong in the env file, not the unit:
+EnvironmentFile=-/etc/lab-hostops/.env
+ExecStart=/opt/lab-hostops/.venv/bin/lab-hostops-serve --transport http
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
