@@ -130,7 +130,7 @@ def _run_http(cfg: HostopsConfig, ops: HostOps, mcp) -> None:
         app = mcp.streamable_http_app()
 
     async def status_endpoint(_request: Request) -> JSONResponse:
-        return JSONResponse(ops.status_envelope())
+        return JSONResponse(await ops.status_payload())
 
     app.add_route("/status", status_endpoint, methods=["GET"])
 

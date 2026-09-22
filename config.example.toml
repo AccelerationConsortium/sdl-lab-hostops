@@ -33,3 +33,28 @@ restartable = ["plateloc", "torry-pines-shaker"]
 ports = [8000, 8010, 8030, 8040, 8050]
 # Gateway-style services 404 on bare /status; override the path per port:
 # paths = { 8030 = "/zones/env_hte/status" }
+
+# ---------------------------------------------------------------------------
+# [checks] — OPTIONAL host health. Omit the section entirely and /status keeps
+# its liveness-only behaviour (always "ready" while the process is up).
+# Every enabled check that cannot run marks its own component "unknown", which
+# leaves the host "degraded" with the reason named — never a green tile.
+# Only enable what actually works on the host: a permanently-unknown check
+# means a permanently-amber tile, which trains people to ignore it.
+# ---------------------------------------------------------------------------
+# [checks]
+# disks = ["/", "/var", "/home"]      # per-mount used% and free GB
+# disk_warn_pct = 90.0
+# disk_crit_pct = 95.0
+# zfs_pool = "tank"                   # `zpool status -x` + capacity
+# zfs_warn_pct = 80.0
+# zfs_crit_pct = 90.0
+# backup_log = "/home/sdl2/storage/internal/backups/backup.log"
+# backup_max_age_hours = 26.0         # nightly job + margin
+# backup_warn_patterns = ["postgres: not published"]
+# user_units = ["la-agente-chat"]     # needs user_runtime_dir: a system
+# user_runtime_dir = "/run/user/1000" # service has no session bus otherwise
+# docker_containers = ["analytica-postgres"]   # needs docker socket access
+# gpu = true                          # nvidia-smi memory used/total
+# ttl_seconds = 20.0                  # cache; keep below the poll interval
+# timeout_seconds = 3.0               # per check

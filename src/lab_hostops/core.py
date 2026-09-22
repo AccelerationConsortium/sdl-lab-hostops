@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
 
 from .audit import post_audit
+from .checks import Checks, rollup
 from .config import HostopsConfig
 
 MIN_LOG_LINES = 10
@@ -63,6 +64,7 @@ class HostOps:
         self.cfg = cfg
         self.backend = backend
         self._status_getter = status_getter or _default_status_getter
+        self.checks = Checks(cfg.checks)
 
     # ------------------------------------------------------------------ gates
 
@@ -161,6 +163,28 @@ class HostOps:
             return {"ok": False, "url": f"http://127.0.0.1:{checked}{path}", "error": f"{type(exc).__name__}: {exc}"}
 
     # ---------------------------------------------------------------- status
+
+    async def status_payload(self) -> dict[str, Any]:
+        """The envelope plus whatever ``[checks]`` is configured to look at.
+
+        Checks are cached (``checks.ttl_seconds``) and individually bounded, so
+        this stays inside a dashboard poll timeout; with no checks configured
+        it is exactly :meth:`status_envelope`.
+        """
+        envelope = self.status_envelope()
+        findings = await self.checks.findings()
+        if not findings:
+            return envelope
+        status, message = rollup(findings)
+        envelope["equipment_status"] = status
+        envelope["message"] = message
+        envelope["components"] = {f.key: f.component() for f in findings}
+        metrics: dict[str, Any] = {}
+        for finding in findings:
+            metrics.update(finding.metrics)
+        if metrics:
+            envelope["metrics"] = metrics
+        return envelope
 
     def status_envelope(self) -> dict[str, Any]:
         """Minimal STATUS_SPEC-shaped envelope (v1.2 read-only clause) for the

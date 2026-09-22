@@ -24,6 +24,32 @@ touched at all.
 | `list_serial_ports()` | no | pyserial (`[serial]` extra) or `/dev` glob fallback |
 | `probe_local_status(port)` | no | `GET http://127.0.0.1:<port>/status` for whitelisted ports |
 
+## Host checks (optional)
+
+`GET /status` is a liveness ping by default: `ready` whenever the process is
+up. `[checks]` in `config.toml` makes it mean something — per-mount disk use,
+ZFS pool health and capacity, nightly-backup result and age, systemd **user**
+units, docker containers, GPU memory. Results become STATUS_SPEC `components`
+and `metrics`, folded into `equipment_status` (`ready` / `degraded` / `error`)
+and a one-line `message`.
+
+Three properties worth knowing, because they are what make the tile
+trustworthy:
+
+- **A check that cannot run is `unknown`, and `unknown` degrades the host.**
+  Missing `zpool`, an unreadable docker socket or a timeout never reads as
+  healthy — STATUS_SPEC §2.1: "cannot tell" is not "fine".
+- **`backup OK` is not automatically green.** `backup_warn_patterns` catches a
+  run that succeeded with gaps (gaia: a `dot6:` line saying
+  `postgres: not published`), and a log older than `backup_max_age_hours`
+  is an error even if its last line says OK.
+- **Cost is bounded.** Every check has its own timeout and the whole set is
+  cached for `ttl_seconds`, so a 30 s dashboard poll does not re-run
+  `zpool`/`nvidia-smi`. Measured on a 6-check config: ~10 ms cold, <1 ms cached.
+
+Only enable checks that work on that host: a permanently-`unknown` check means
+a permanently-amber tile, which teaches people to ignore it.
+
 ## Backends
 
 Selected automatically by platform:

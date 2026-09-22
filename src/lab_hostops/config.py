@@ -11,8 +11,10 @@ from __future__ import annotations
 
 import os
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
+
+from .checks import ChecksConfig
 
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
 
@@ -31,6 +33,9 @@ class HostopsConfig:
     # Gateway-style services 404 on bare /status (e.g. sense-every-zone
     # serves /zones/<id>/status); [probe] paths overrides per port.
     probe_paths: dict[int, str] | None = None
+    # [checks] — opt-in host health. Default: none configured, so the status
+    # envelope keeps its pre-existing liveness-only behaviour.
+    checks: ChecksConfig = field(default_factory=ChecksConfig)
 
     @property
     def loopback_only(self) -> bool:
@@ -53,6 +58,7 @@ class HostopsConfig:
         for port, path in (self.probe_paths or {}).items():
             if not path.startswith("/"):
                 errors.append(f"probe.paths[{port}] must start with '/': {path!r}")
+        errors.extend(self.checks.validate())
         if errors:
             raise ValueError("invalid hostops config: " + "; ".join(errors))
 
@@ -63,6 +69,7 @@ def load_config(path: str | Path | None = None) -> HostopsConfig:
     h = data.get("hostops", {})
     s = data.get("services", {})
     p = data.get("probe", {})
+    c = data.get("checks", {})
     cfg = HostopsConfig(
         equipment_id=str(h.get("equipment_id", "")),
         transport=str(h.get("transport", "stdio")),
@@ -74,6 +81,7 @@ def load_config(path: str | Path | None = None) -> HostopsConfig:
         restartable=tuple(str(x) for x in s.get("restartable", [])),
         probe_ports=tuple(int(x) for x in p.get("ports", [])),
         probe_paths={int(k): str(v) for k, v in p.get("paths", {}).items()} or None,
+        checks=ChecksConfig.from_toml(c),
     )
     cfg.validate()
     return cfg
