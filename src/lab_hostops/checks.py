@@ -30,6 +30,9 @@ from typing import Any
 # A component that could not be determined. Never "ok": see the module note.
 UNKNOWN = "unknown"
 
+# Worst-wins ordering for severities, lowest first.
+_SEVERITY_ORDER = ["ok", "warn", UNKNOWN, "crit"]
+
 
 @dataclass(frozen=True)
 class ChecksConfig:
@@ -38,6 +41,12 @@ class ChecksConfig:
     disks: tuple[str, ...] = ()
     disk_warn_pct: float = 90.0
     disk_crit_pct: float = 95.0
+    # Percentages are the wrong instrument for a small filesystem: gaia's 9 GB
+    # /var sat at 69% — nowhere near a 90% warn — with 2.5 GB free, which one
+    # container image can swallow. An absolute floor catches what the ratio
+    # cannot, and on a large disk it simply never fires first.
+    disk_min_free_warn_gb: float = 2.0
+    disk_min_free_crit_gb: float = 1.0
     zfs_pool: str | None = None
     zfs_warn_pct: float = 80.0
     zfs_crit_pct: float = 90.0
@@ -75,6 +84,8 @@ class ChecksConfig:
             disks=tuple(str(x) for x in section.get("disks", [])),
             disk_warn_pct=_floats("disk_warn_pct", 90.0),
             disk_crit_pct=_floats("disk_crit_pct", 95.0),
+            disk_min_free_warn_gb=_floats("disk_min_free_warn_gb", 2.0),
+            disk_min_free_crit_gb=_floats("disk_min_free_crit_gb", 1.0),
             zfs_pool=str(section["zfs_pool"]) if section.get("zfs_pool") else None,
             zfs_warn_pct=_floats("zfs_warn_pct", 80.0),
             zfs_crit_pct=_floats("zfs_crit_pct", 90.0),
@@ -102,6 +113,10 @@ class ChecksConfig:
             errors.append(
                 "checks.user_units needs checks.user_runtime_dir (e.g. /run/user/1000): "
                 "a system service has no session bus to reach `systemctl --user`"
+            )
+        if self.disk_min_free_crit_gb > self.disk_min_free_warn_gb:
+            errors.append(
+                "checks.disk_min_free_crit_gb must be <= checks.disk_min_free_warn_gb"
             )
         if self.ttl_seconds < 0 or self.timeout_seconds <= 0:
             errors.append("checks.ttl_seconds must be >= 0 and checks.timeout_seconds > 0")
@@ -204,21 +219,40 @@ class Checks:
     async def _disk(self, mount: str) -> Finding:
         usage = shutil.disk_usage(mount)
         used_pct = 100.0 * usage.used / usage.total if usage.total else 0.0
+        free_gb = usage.free / 1e9
         key = f"disk{mount.replace('/', '_').rstrip('_') or '_root'}"
-        severity = (
+
+        # Two independent judgements — a ratio and an absolute floor — and the
+        # worse one wins. Either alone has a blind spot: the ratio misses a
+        # nearly-full small partition, the floor misses a 4 TB disk at 92%.
+        by_ratio = (
             "crit" if used_pct >= self.cfg.disk_crit_pct
             else "warn" if used_pct >= self.cfg.disk_warn_pct
             else "ok"
         )
+        by_free = (
+            "crit" if free_gb <= self.cfg.disk_min_free_crit_gb
+            else "warn" if free_gb <= self.cfg.disk_min_free_warn_gb
+            else "ok"
+        )
+        severity = max(by_ratio, by_free, key=_SEVERITY_ORDER.index)
+
+        if severity == "ok":
+            message = None
+        elif by_free != "ok" and by_free >= by_ratio:
+            message = f"{mount} has only {free_gb:.1f} GB free ({used_pct:.0f}% used)"
+        else:
+            message = f"{mount} is {used_pct:.0f}% full ({free_gb:.1f} GB free)"
+
         return Finding(
             key,
             severity == "ok",
-            f"{used_pct:.0f}% used",
-            None if severity == "ok" else f"{mount} is {used_pct:.0f}% full",
+            f"{used_pct:.0f}% used, {free_gb:.1f} GB free",
+            message,
             severity,
             {
                 f"{key}_used_pct": _metric(used_pct, "%"),
-                f"{key}_free": _metric(usage.free / 1e9, "GB"),
+                f"{key}_free": _metric(free_gb, "GB"),
             },
         )
 

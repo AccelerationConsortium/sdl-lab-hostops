@@ -100,6 +100,50 @@ def test_disk_check_reports_percent_and_free(tmp_path):
     assert 0 <= found.metrics[pct]["value"] <= 100
 
 
+def test_disk_warns_on_absolute_free_floor_even_when_percent_looks_fine(tmp_path):
+    """gaia's /var: 69% used — nowhere near 90% — with 2.5 GB free."""
+    checks = Checks(
+        ChecksConfig(
+            disks=(str(tmp_path),),
+            disk_warn_pct=90.0,
+            disk_crit_pct=95.0,
+            # force the floor to bite whatever the test filesystem looks like
+            disk_min_free_warn_gb=10_000.0,
+            disk_min_free_crit_gb=0.001,
+        )
+    )
+    found = asyncio.run(checks._disk(str(tmp_path)))
+    assert found.severity == "warn"
+    assert "GB free" in (found.message or "")
+    assert rollup([found])[0] == "degraded"
+
+
+def test_disk_crit_on_absolute_floor(tmp_path):
+    checks = Checks(
+        ChecksConfig(
+            disks=(str(tmp_path),),
+            disk_min_free_warn_gb=20_000.0,
+            disk_min_free_crit_gb=10_000.0,
+        )
+    )
+    found = asyncio.run(checks._disk(str(tmp_path)))
+    assert found.severity == "crit"
+    assert rollup([found])[0] == "error"
+
+
+def test_disk_floor_defaults_do_not_fire_on_a_roomy_disk(tmp_path):
+    found = asyncio.run(Checks(ChecksConfig(disks=(str(tmp_path),)))._disk(str(tmp_path)))
+    import shutil as _sh
+
+    free_gb = _sh.disk_usage(str(tmp_path)).free / 1e9
+    assert found.severity == ("ok" if free_gb > 2.0 else found.severity)
+
+
+def test_crit_floor_above_warn_floor_is_refused():
+    errors = ChecksConfig(disk_min_free_warn_gb=1.0, disk_min_free_crit_gb=5.0).validate()
+    assert any("disk_min_free_crit_gb" in e for e in errors)
+
+
 def test_disk_warns_past_threshold(tmp_path):
     checks = Checks(ChecksConfig(disks=(str(tmp_path),), disk_warn_pct=0.0, disk_crit_pct=101.0))
     assert asyncio.run(checks._disk(str(tmp_path))).severity == "warn"
